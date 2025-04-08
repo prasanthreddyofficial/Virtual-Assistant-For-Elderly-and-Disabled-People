@@ -24,19 +24,19 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Access sensitive keys via Streamlit Secrets
+# Access sensitive keys via Streamlit secrets
 GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
 EMAIL_USER = st.secrets["EMAIL_USER"]
 EMAIL_PASSWORD = st.secrets["EMAIL_PASSWORD"]
 
-# Custom layer support for your Keras model
+# Custom layer support
 from tensorflow.keras.layers import DepthwiseConv2D as _DepthwiseConv2D
 class CustomDepthwiseConv2D(_DepthwiseConv2D):
     def __init__(self, *args, **kwargs):
         kwargs.pop('groups', None)
         super().__init__(*args, **kwargs)
 
-# Insert CSS styling
+# Insert CSS styling (include all your CSS rules or paste your complete CSS block)
 st.markdown("""
     <style>
     /* Global Styling */
@@ -46,12 +46,11 @@ st.markdown("""
         font-family: 'Inter', 'Segoe UI', sans-serif; 
         animation: fadeIn 1.2s ease-in-out;
     }
-    /* Header, Sidebar, Button, and other styles can go here.
-       (For brevity, please include your entire CSS from your original code.) */
+    /* (Rest of your CSS styles omitted for brevity) */
     </style>
 """, unsafe_allow_html=True)
 
-# Initialize Streamlit session state variables
+# Initialize session state variables
 if 'sentence' not in st.session_state:
     st.session_state.sentence = []
 if 'current_word' not in st.session_state:
@@ -69,37 +68,34 @@ def header():
         </div>
     """, unsafe_allow_html=True)
 
-################################################################################
-# Sign Language to Text
-# (Revised to use st.camera_input() instead of cv2.VideoCapture)
-################################################################################
+###########################################################################
+# SIGN LANGUAGE TO TEXT
+# Uses st.camera_input() for image capture
+###########################################################################
 def sign_language_to_text():
     st.subheader("Sign Language to Text")
-    st.write("Take a picture using your camera for sign language detection:")
+    st.write("Use your camera to capture an image for sign language detection:")
     img_file_buffer = st.camera_input("Capture Image")
     
     if img_file_buffer is not None:
-        # Convert the uploaded image to a format for OpenCV
+        # Convert image data to OpenCV format
         file_bytes = np.asarray(bytearray(img_file_buffer.read()), dtype=np.uint8)
         img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
         img = cv2.flip(img, 1)
         
-        # Initialize the hand detector and load the model
+        # Initialize the hand detector and classifier (model files must be in repo root or adjust path)
         detector = HandDetector(maxHands=1)
         with tf.keras.utils.custom_object_scope({'DepthwiseConv2D': CustomDepthwiseConv2D}):
-            # Ensure "keras_model.h5" and "labels.txt" are in your repository (relative paths)
             classifier = Classifier("keras_model.h5", "labels.txt")
         
         offset = 20
         imgSize = 300
-        # Process the image using the hand detector
         hands_found, _ = detector.findHands(img, draw=True)
         if hands_found:
             hand = hands_found[0]
             x, y, w, h = hand['bbox']
             imgWhite = np.ones((imgSize, imgSize, 3), np.uint8) * 255
             imgCrop = img[y - offset:y + h + offset, x - offset:x + w + offset]
-            
             if imgCrop.shape[0] > 0 and imgCrop.shape[1] > 0:
                 aspectRatio = h / w
                 if aspectRatio > 1:
@@ -116,7 +112,6 @@ def sign_language_to_text():
                     hGap = math.ceil((imgSize - hCal) / 2)
                     imgWhite[hGap:hCal + hGap, :] = imgResize
                     prediction, index = classifier.getPrediction(imgWhite, draw=False)
-                
                 labels = [chr(i) for i in range(65, 91)]
                 detected_sign = labels[index]
                 st.success(f"Detected Sign: {detected_sign}")
@@ -126,10 +121,9 @@ def sign_language_to_text():
         else:
             st.info("No hand detected. Please capture another image.")
 
-################################################################################
-# Other functions: Speech-to-Text, Text-to-Speech, Chatbot, Alerts, Reminders, etc.
-# (Keep these as per your original code since they are already compatible.)
-################################################################################
+###########################################################################
+# Other functions remain the same (Speech-to-Text, Text-to-Speech, Chatbot, etc.)
+###########################################################################
 def speech_to_text():
     st.subheader("Speech to Text")
     recognizer = sr.Recognizer()
@@ -226,8 +220,7 @@ def text_to_sign():
         if not text:
             st.warning("Please enter some text.")
         else:
-            # Assuming your sign images are in a folder named "asl_alphabet_test" in the repo
-            SIGN_IMAGE_PATH = "asl_alphabet_test"
+            SIGN_IMAGE_PATH = "asl_alphabet_test"  # Ensure this folder is in your repository
             SIGN_LANGUAGE_DICT = {chr(i + 65): os.path.join(SIGN_IMAGE_PATH, f"{chr(i + 65)}_test.jpg") for i in range(26)}
             st.info("Starting slideshow:")
             slideshow = st.empty()
@@ -310,7 +303,7 @@ with st.sidebar:
             set_feature(feature)
 
 def main():
-    header()  # Display the header
+    header()  # Display header
     
     tab1, tab2 = st.tabs(["Dashboard", "About & Help"])
     
