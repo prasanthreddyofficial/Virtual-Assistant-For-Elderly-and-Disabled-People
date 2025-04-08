@@ -23,10 +23,11 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
-load_dotenv()
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-EMAIL_USER = os.getenv("EMAIL_USER")
-EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+
+GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
+EMAIL_USER = st.secrets["EMAIL_USER"]
+EMAIL_PASSWORD = st.secrets["EMAIL_PASSWORD"]
+
 
 from tensorflow.keras.layers import DepthwiseConv2D as _DepthwiseConv2D
 
