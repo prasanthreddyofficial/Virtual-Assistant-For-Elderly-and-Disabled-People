@@ -1,0 +1,13 @@
+streamlit
+opencv-python
+numpy
+python-dotenv
+tensorflow
+cvzone
+mediapipe
+SpeechRecognition
+gTTS
+langchain-groq
+langchain-core
+langchain-embeddings
+langchain-llms
