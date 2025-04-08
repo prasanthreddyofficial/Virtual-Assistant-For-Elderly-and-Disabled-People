@@ -24,29 +24,53 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Access sensitive keys via Streamlit secrets
+# Access secrets via Streamlit secrets manager.
+# Make sure to add these keys to your Streamlit Cloud Secrets.
 GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
 EMAIL_USER = st.secrets["EMAIL_USER"]
 EMAIL_PASSWORD = st.secrets["EMAIL_PASSWORD"]
 
-# Custom layer support
+# Custom layer (needed for your model)
 from tensorflow.keras.layers import DepthwiseConv2D as _DepthwiseConv2D
 class CustomDepthwiseConv2D(_DepthwiseConv2D):
     def __init__(self, *args, **kwargs):
         kwargs.pop('groups', None)
         super().__init__(*args, **kwargs)
 
-# Insert CSS styling (include all your CSS rules or paste your complete CSS block)
+# Insert CSS styling (include your complete CSS here)
 st.markdown("""
     <style>
     /* Global Styling */
     .stApp {
         background: linear-gradient(135deg, #1C2526 0%, #2E3738 100%);
         color: #E0E7E9;
-        font-family: 'Inter', 'Segoe UI', sans-serif; 
+        font-family: 'Inter', 'Segoe UI', sans-serif;
         animation: fadeIn 1.2s ease-in-out;
     }
-    /* (Rest of your CSS styles omitted for brevity) */
+    /* Header Styling */
+    .main-header {
+        background: linear-gradient(90deg, #2E3738, #404C4D);
+        padding: 2.5rem;
+        border-radius: 12px;
+        color: #FFFFFF;
+        text-align: center;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+        animation: slideDown 0.8s ease-out;
+    }
+    .main-header h1 {
+        font-size: 2.6rem;
+        font-weight: 600;
+        margin: 0;
+        letter-spacing: 0.5px;
+    }
+    .main-header p {
+        font-size: 1.2rem;
+        margin-top: 0.75rem;
+        color: #A8B5B5;
+        font-weight: 300;
+        animation: fadeInText 1.5s ease-in;
+    }
+    /* Sidebar, Buttons, and additional styling go here */
     </style>
 """, unsafe_allow_html=True)
 
@@ -68,24 +92,25 @@ def header():
         </div>
     """, unsafe_allow_html=True)
 
-###########################################################################
-# SIGN LANGUAGE TO TEXT
-# Uses st.camera_input() for image capture
-###########################################################################
+################################################################################
+# Sign Language to Text Function
+# Uses st.camera_input() for capturing an image from the browser.
+################################################################################
 def sign_language_to_text():
     st.subheader("Sign Language to Text")
-    st.write("Use your camera to capture an image for sign language detection:")
+    st.write("Capture an image using your camera to detect a sign:")
     img_file_buffer = st.camera_input("Capture Image")
     
     if img_file_buffer is not None:
-        # Convert image data to OpenCV format
+        # Convert the captured image into an OpenCV image.
         file_bytes = np.asarray(bytearray(img_file_buffer.read()), dtype=np.uint8)
         img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
         img = cv2.flip(img, 1)
         
-        # Initialize the hand detector and classifier (model files must be in repo root or adjust path)
+        # Initialize the hand detector and classifier.
         detector = HandDetector(maxHands=1)
         with tf.keras.utils.custom_object_scope({'DepthwiseConv2D': CustomDepthwiseConv2D}):
+            # Ensure "keras_model.h5" and "labels.txt" are in your repository
             classifier = Classifier("keras_model.h5", "labels.txt")
         
         offset = 20
@@ -103,33 +128,33 @@ def sign_language_to_text():
                     wCal = math.ceil(k * w)
                     imgResize = cv2.resize(imgCrop, (wCal, imgSize))
                     wGap = math.ceil((imgSize - wCal) / 2)
-                    imgWhite[:, wGap:wCal + wGap] = imgResize
+                    imgWhite[:, wGap:wCal+wGap] = imgResize
                     prediction, index = classifier.getPrediction(imgWhite, draw=False)
                 else:
                     k = imgSize / w
                     hCal = math.ceil(k * h)
                     imgResize = cv2.resize(imgCrop, (imgSize, hCal))
                     hGap = math.ceil((imgSize - hCal) / 2)
-                    imgWhite[hGap:hCal + hGap, :] = imgResize
+                    imgWhite[hGap:hCal+hGap, :] = imgResize
                     prediction, index = classifier.getPrediction(imgWhite, draw=False)
                 labels = [chr(i) for i in range(65, 91)]
                 detected_sign = labels[index]
                 st.success(f"Detected Sign: {detected_sign}")
                 st.image(img, channels="BGR", caption=f"Detected Sign: {detected_sign}")
             else:
-                st.warning("Hand detected but image processing failed. Please try again.")
+                st.warning("Hand detected but unable to process image. Please try again.")
         else:
             st.info("No hand detected. Please capture another image.")
 
-###########################################################################
-# Other functions remain the same (Speech-to-Text, Text-to-Speech, Chatbot, etc.)
-###########################################################################
+################################################################################
+# Speech to Text Function
+################################################################################
 def speech_to_text():
     st.subheader("Speech to Text")
     recognizer = sr.Recognizer()
     mic = sr.Microphone()
-    recognizer.pause_threshold = 1.5  
-    recognizer.energy_threshold = 300  
+    recognizer.pause_threshold = 1.5
+    recognizer.energy_threshold = 300
     if st.button("Record"):
         with mic as source:
             recognizer.adjust_for_ambient_noise(source, duration=1)
@@ -140,10 +165,13 @@ def speech_to_text():
             st.success("Recognized Text:")
             st.markdown(f"<h3 style='color:#000000;'>{text}</h3>", unsafe_allow_html=True)
         except sr.UnknownValueError:
-            st.error("Could not understand the speech.")
+            st.error("Could not understand your speech.")
         except sr.RequestError as e:
-            st.error(f"Request Error from Google API: {e}")
+            st.error(f"Error from Google API: {e}")
 
+################################################################################
+# Text to Speech Function
+################################################################################
 def text_to_speech():
     st.subheader("Text to Speech")
     col1, col2 = st.columns([3, 1])
@@ -160,8 +188,11 @@ def text_to_speech():
                     st.audio("output.mp3", format="audio/mp3")
                     st.success("Playing converted speech.")
                 except Exception as e:
-                    st.error(f"Failed to generate audio: {e}")
+                    st.error(f"Audio generation failed: {e}")
 
+################################################################################
+# AI Chatbot for Medicines Function
+################################################################################
 @st.cache_data(ttl=600)
 def get_grok_response(query):
     try:
@@ -188,8 +219,11 @@ def chatbot():
             if response:
                 st.write("AI Recommendation:", response)
             else:
-                st.error("Failed to get chatbot response.")
+                st.error("Chatbot did not return a response.")
 
+################################################################################
+# Emergency Alert Function
+################################################################################
 def send_emergency_alert():
     st.subheader("Emergency Alert")
     recipient = st.text_input("Enter recipient email:")
@@ -213,6 +247,9 @@ def send_emergency_alert():
         except Exception as e:
             st.error(f"Failed to send alert: {e}")
 
+################################################################################
+# Text to Sign Language Function
+################################################################################
 def text_to_sign():
     st.subheader("Text to Sign Language")
     text = st.text_area("Enter text to convert to sign language:")
@@ -220,7 +257,8 @@ def text_to_sign():
         if not text:
             st.warning("Please enter some text.")
         else:
-            SIGN_IMAGE_PATH = "asl_alphabet_test"  # Ensure this folder is in your repository
+            # Ensure that your sign images are located in the folder "asl_alphabet_test"
+            SIGN_IMAGE_PATH = "asl_alphabet_test"
             SIGN_LANGUAGE_DICT = {chr(i + 65): os.path.join(SIGN_IMAGE_PATH, f"{chr(i + 65)}_test.jpg") for i in range(26)}
             st.info("Starting slideshow:")
             slideshow = st.empty()
@@ -233,13 +271,16 @@ def text_to_sign():
                     if os.path.exists(image_path):
                         slideshow.image(image_path, caption=f"Sign for '{char}'", width=200)
                     else:
-                        slideshow.warning(f"No image for '{char}'.")
+                        slideshow.warning(f"No image available for '{char}'.")
                     time.sleep(1)
                 else:
                     slideshow.warning(f"Unsupported character: '{char}'")
                     time.sleep(1)
             slideshow.empty()
 
+################################################################################
+# Medicine Reminder Functions
+################################################################################
 def send_medicine_reminder_email(recipient, medicine, reminder_time):
     msg = MIMEText(f"Reminder: Time to take your medicine: {medicine}")
     msg["Subject"] = f"Medicine Reminder at {reminder_time}"
@@ -279,7 +320,9 @@ def medicine_reminder():
         else:
             schedule_medicine_reminder(recipient, medicine, reminder_time)
 
-# Sidebar feature selection
+################################################################################
+# Sidebar and Navigation
+################################################################################
 if "selected_feature" not in st.session_state:
     st.session_state.selected_feature = "Home"
 
@@ -302,6 +345,9 @@ with st.sidebar:
         if st.button(f"{icon} {feature}", key=f"btn_{feature.lower().replace(' ', '_')}"):
             set_feature(feature)
 
+################################################################################
+# Main Interface
+################################################################################
 def main():
     header()  # Display header
     
@@ -337,7 +383,7 @@ def main():
     with tab2:
         st.header("About & Help")
         st.write("""
-        **Virtual Assistant for the Elderly and Disabled People** is an AI-powered platform designed to help users with communication and health-related tasks. 
+        **Virtual Assistant for the Elderly and Disabled People** is an AI-powered platform designed to help users with communication and health-related tasks.
         The app integrates:
         - **AI-driven sign language detection** via computer vision.
         - **Speech recognition and synthesis** for natural communication.
