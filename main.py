@@ -17,26 +17,26 @@ from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
-# Configure Streamlit page
+# Configure the Streamlit app
 st.set_page_config(
     page_title="VIRTUAL ASSISTANT FOR THE ELDERLY AND DISABLED PEOPLE",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Access secrets via Streamlit secrets manager
+# Access sensitive keys via Streamlit Secrets
 GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
 EMAIL_USER = st.secrets["EMAIL_USER"]
 EMAIL_PASSWORD = st.secrets["EMAIL_PASSWORD"]
 
-# Custom layer if needed by your model
+# Custom layer support for your Keras model
 from tensorflow.keras.layers import DepthwiseConv2D as _DepthwiseConv2D
 class CustomDepthwiseConv2D(_DepthwiseConv2D):
     def __init__(self, *args, **kwargs):
         kwargs.pop('groups', None)
         super().__init__(*args, **kwargs)
 
-# CSS Styling remains the same
+# Insert CSS styling
 st.markdown("""
     <style>
     /* Global Styling */
@@ -46,11 +46,12 @@ st.markdown("""
         font-family: 'Inter', 'Segoe UI', sans-serif; 
         animation: fadeIn 1.2s ease-in-out;
     }
-    /* Header and other styling rules ... (rest of your CSS) */
+    /* Header, Sidebar, Button, and other styles can go here.
+       (For brevity, please include your entire CSS from your original code.) */
     </style>
 """, unsafe_allow_html=True)
 
-# Initialize session state variables
+# Initialize Streamlit session state variables
 if 'sentence' not in st.session_state:
     st.session_state.sentence = []
 if 'current_word' not in st.session_state:
@@ -69,31 +70,30 @@ def header():
     """, unsafe_allow_html=True)
 
 ################################################################################
-# Revised: Sign Language to Text – using st.camera_input for deployment support.
+# Sign Language to Text
+# (Revised to use st.camera_input() instead of cv2.VideoCapture)
 ################################################################################
 def sign_language_to_text():
     st.subheader("Sign Language to Text")
-    st.write("Use your camera to take a picture for sign language detection.")
-    # Use st.camera_input instead of cv2.VideoCapture
-    img_file_buffer = st.camera_input("Take a picture")
+    st.write("Take a picture using your camera for sign language detection:")
+    img_file_buffer = st.camera_input("Capture Image")
     
     if img_file_buffer is not None:
-        # Convert the image data to a format OpenCV can work with.
+        # Convert the uploaded image to a format for OpenCV
         file_bytes = np.asarray(bytearray(img_file_buffer.read()), dtype=np.uint8)
         img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-        # Flip the image horizontally (if needed)
         img = cv2.flip(img, 1)
         
-        # Initialize detector and classifier
+        # Initialize the hand detector and load the model
         detector = HandDetector(maxHands=1)
         with tf.keras.utils.custom_object_scope({'DepthwiseConv2D': CustomDepthwiseConv2D}):
-            # Use relative paths to load your model and labels.
+            # Ensure "keras_model.h5" and "labels.txt" are in your repository (relative paths)
             classifier = Classifier("keras_model.h5", "labels.txt")
         
         offset = 20
         imgSize = 300
-        # Detect hand in the provided image
-        hands_found, img_processed = detector.findHands(img, draw=True)
+        # Process the image using the hand detector
+        hands_found, _ = detector.findHands(img, draw=True)
         if hands_found:
             hand = hands_found[0]
             x, y, w, h = hand['bbox']
@@ -116,17 +116,19 @@ def sign_language_to_text():
                     hGap = math.ceil((imgSize - hCal) / 2)
                     imgWhite[hGap:hCal + hGap, :] = imgResize
                     prediction, index = classifier.getPrediction(imgWhite, draw=False)
+                
                 labels = [chr(i) for i in range(65, 91)]
                 detected_sign = labels[index]
                 st.success(f"Detected Sign: {detected_sign}")
                 st.image(img, channels="BGR", caption=f"Detected Sign: {detected_sign}")
             else:
-                st.warning("Hand detected but unable to process the region. Please try again.")
+                st.warning("Hand detected but image processing failed. Please try again.")
         else:
-            st.info("No hand detected. Please try capturing another image.")
+            st.info("No hand detected. Please capture another image.")
 
 ################################################################################
-# (Other functions remain the same; they are assumed to work as intended.)
+# Other functions: Speech-to-Text, Text-to-Speech, Chatbot, Alerts, Reminders, etc.
+# (Keep these as per your original code since they are already compatible.)
 ################################################################################
 def speech_to_text():
     st.subheader("Speech to Text")
@@ -144,7 +146,7 @@ def speech_to_text():
             st.success("Recognized Text:")
             st.markdown(f"<h3 style='color:#000000;'>{text}</h3>", unsafe_allow_html=True)
         except sr.UnknownValueError:
-            st.error("Sorry, I could not understand your speech.")
+            st.error("Could not understand the speech.")
         except sr.RequestError as e:
             st.error(f"Request Error from Google API: {e}")
 
@@ -154,18 +156,17 @@ def text_to_speech():
     with col1:
         text = st.text_area("Enter text to convert to speech:")
     with col2:
-        speak_button = st.button("Speak Now")
-    if speak_button:
-        if not text:
-            st.warning("Please enter some text.")
-        else:
-            try:
-                tts = gTTS(text)
-                tts.save("output.mp3")
-                st.audio("output.mp3", format="audio/mp3")
-                st.success("Playing converted speech.")
-            except Exception as e:
-                st.error(f"Failed to generate audio: {e}")
+        if st.button("Speak Now"):
+            if not text:
+                st.warning("Please enter some text.")
+            else:
+                try:
+                    tts = gTTS(text)
+                    tts.save("output.mp3")
+                    st.audio("output.mp3", format="audio/mp3")
+                    st.success("Playing converted speech.")
+                except Exception as e:
+                    st.error(f"Failed to generate audio: {e}")
 
 @st.cache_data(ttl=600)
 def get_grok_response(query):
@@ -225,8 +226,7 @@ def text_to_sign():
         if not text:
             st.warning("Please enter some text.")
         else:
-            # Ensure that the test images are in a folder within your repository,
-            # for example, "asl_alphabet_test" in the repo root.
+            # Assuming your sign images are in a folder named "asl_alphabet_test" in the repo
             SIGN_IMAGE_PATH = "asl_alphabet_test"
             SIGN_LANGUAGE_DICT = {chr(i + 65): os.path.join(SIGN_IMAGE_PATH, f"{chr(i + 65)}_test.jpg") for i in range(26)}
             st.info("Starting slideshow:")
@@ -310,7 +310,7 @@ with st.sidebar:
             set_feature(feature)
 
 def main():
-    header()  # Display header
+    header()  # Display the header
     
     tab1, tab2 = st.tabs(["Dashboard", "About & Help"])
     
@@ -358,7 +358,7 @@ def main():
     
     st.markdown("""
     <hr>
-    <p style='text-align: center;'>Developed by Prasanth Reddy | Version 4.5</p>
+    <p style='text-align: center;'>Developed by Prasanth Reddy & Team | Version 4.5</p>
     <p style='text-align: center;'>Making communication accessible for everyone!</p>
     """, unsafe_allow_html=True)
 
